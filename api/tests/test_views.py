@@ -162,39 +162,12 @@ class CategoryViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["name"], "ボトムス")
 
-    # --- destroy ---
-
-    # カテゴリを1件削除できること
-    def test_destroy(self):
+    # 存在しない parent_category IDを指定した場合は400が返ること
+    def test_partial_update_with_nonexistent_parent_category(self):
         url = reverse("category-detail", args=[self.category_tops.id])
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
-
-    # 存在しないIDで404が返ること
-    def test_destroy_not_found(self):
-        url = reverse("category-detail", args=[uuid.uuid4()])
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-    # --- bulk_destroy ---
-
-    # 複数のカテゴリをまとめて削除できること
-    def test_bulk_destroy(self):
-        url = reverse("category-bulk-destroy")
-        data = {"ids": [self.category_ladies.id, self.category_tops.id]}
-        response = self.client.delete(url, data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Category.objects.filter(pk=self.category_ladies.id).exists())
-        self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
-
-    # 存在しないIDが混じっていても、存在するものだけ削除されること
-    def test_bulk_destroy_skips_nonexistent_ids(self):
-        url = reverse("category-bulk-destroy")
-        data = {"ids": [self.category_tops.id, uuid.uuid4()]}
-        response = self.client.delete(url, data, format="json")
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
+        data = {"parent_category": uuid.uuid4()}  # 存在しないID
+        response = self.client.patch(url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     # --- bulk_update ---
 
@@ -237,3 +210,74 @@ class CategoryViewTests(APITestCase):
         self.assertEqual(len(response.data["errors"]), 1)
         self.assertEqual(response.data["errors"][0]["id"], str(self.category_tops.id))
         self.assertTrue(Category.objects.filter(pk=self.category_ladies.id, name="ボトムス").exists())
+
+    # 存在しないcompany IDを指定したレコードはerrorsに含まれ、有効なものは更新されること
+    def test_bulk_update_with_nonexistent_company(self):
+        url = reverse("category-bulk-update")
+        data = [
+            {"id": self.category_ladies.id, "name": "メンズ"},
+            {"id": self.category_tops.id, "company": uuid.uuid4()},  # 存在しないcompany
+        ]
+        response = self.client.patch(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["updated"]), 1)
+        self.assertEqual(len(response.data["errors"]), 1)
+        self.assertEqual(response.data["errors"][0]["id"], str(self.category_tops.id))
+
+    # 存在しないparent_category IDを指定したレコードはerrorsに含まれ、有効なものは更新されること
+    def test_bulk_update_with_nonexistent_parent_category(self):
+        url = reverse("category-bulk-update")
+        data = [
+            {"id": self.category_ladies.id, "name": "メンズ"},
+            {"id": self.category_tops.id, "parent_category": uuid.uuid4()},  # 存在しないparent_category
+        ]
+        response = self.client.patch(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["updated"]), 1)
+        self.assertEqual(len(response.data["errors"]), 1)
+        self.assertEqual(response.data["errors"][0]["id"], str(self.category_tops.id))
+
+    # companyにnullを指定した場合はerrorsに含まれること（companyは必須ForeignKey）
+    def test_bulk_update_with_null_company(self):
+        url = reverse("category-bulk-update")
+        data = [
+            {"id": self.category_tops.id, "company": None},
+        ]
+        response = self.client.patch(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["errors"]), 1)
+        self.assertEqual(response.data["errors"][0]["id"], str(self.category_tops.id))
+
+    # --- destroy ---
+
+    # カテゴリを1件削除できること
+    def test_destroy(self):
+        url = reverse("category-detail", args=[self.category_tops.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
+
+    # 存在しないIDで404が返ること
+    def test_destroy_not_found(self):
+        url = reverse("category-detail", args=[uuid.uuid4()])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    # --- bulk_destroy ---
+
+    # 複数のカテゴリをまとめて削除できること
+    def test_bulk_destroy(self):
+        url = reverse("category-bulk-destroy")
+        data = {"ids": [self.category_ladies.id, self.category_tops.id]}
+        response = self.client.delete(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Category.objects.filter(pk=self.category_ladies.id).exists())
+        self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
+
+    # 存在しないIDが混じっていても、存在するものだけ削除されること
+    def test_bulk_destroy_skips_nonexistent_ids(self):
+        url = reverse("category-bulk-destroy")
+        data = {"ids": [self.category_tops.id, uuid.uuid4()]}
+        response = self.client.delete(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
