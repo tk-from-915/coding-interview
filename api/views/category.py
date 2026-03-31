@@ -15,12 +15,12 @@ class CategoryViewSet(viewsets.ModelViewSet):
         # N+1問題が発生しないように
         queryset = Category.objects.select_related("company", "parent_category")
 
-        company_id = self.request.query_params.get("company_id")
+        company_ids = self.request.query_params.getlist("company_id")
         name = self.request.query_params.get("name")
         parent_category_name = self.request.query_params.get("parent_category_name")
 
-        if company_id:
-            queryset = queryset.filter(company_id=company_id)
+        if company_ids:
+            queryset = queryset.filter(company_id__in=company_ids)
         if name:
             queryset = queryset.filter(name=name)
         if parent_category_name:

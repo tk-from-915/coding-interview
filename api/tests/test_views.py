@@ -36,18 +36,21 @@ class CategoryViewTests(APITestCase):
 
     # --- list ---
 
+    # フィルタなしで全件取得できること
     def test_list(self):
         url = reverse("category-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 4)
 
+    # 1つの企業IDで絞り込めること
     def test_list_filter_by_company_id(self):
         url = reverse("category-list")
         response = self.client.get(url, {"company_id": self.company_a.id})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 3)
 
+    # カテゴリ名で絞り込めること
     def test_list_filter_by_name(self):
         url = reverse("category-list")
         response = self.client.get(url, {"name": "トップス"})
@@ -55,6 +58,30 @@ class CategoryViewTests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "トップス")
 
+    # 複数の企業IDで絞り込めること
+    def test_list_filter_by_multiple_company_ids(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"company_id": [self.company_a.id, self.company_b.id]})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 4)
+
+    # 複数の企業ID ＋ カテゴリ名で絞り込めること
+    def test_list_filter_by_multiple_company_ids_and_name(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"company_id": [self.company_a.id, self.company_b.id], "name": "トップス"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "トップス")
+
+    # 複数の企業ID ＋ 親カテゴリ名で絞り込めること
+    def test_list_filter_by_multiple_company_ids_and_parent_category_name(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"company_id": [self.company_a.id, self.company_b.id], "parent_category_name": "レディース"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "トップス")
+
+    # 親カテゴリ名で絞り込めること
     def test_list_filter_by_parent_category_name(self):
         url = reverse("category-list")
         response = self.client.get(url, {"parent_category_name": "レディース"})
@@ -64,12 +91,14 @@ class CategoryViewTests(APITestCase):
 
     # --- retrieve ---
 
+    # カテゴリIDで1件取得できること
     def test_retrieve(self):
         url = reverse("category-detail", args=[self.category_fashion.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["name"], "ファッション")
 
+    # 存在しないIDで404が返ること
     def test_retrieve_not_found(self):
         url = reverse("category-detail", args=[uuid.uuid4()])
         response = self.client.get(url)
@@ -77,6 +106,7 @@ class CategoryViewTests(APITestCase):
 
     # --- create ---
 
+    # カテゴリを1件作成できること
     def test_create(self):
         url = reverse("category-list")
         data = {
@@ -88,6 +118,7 @@ class CategoryViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["name"], "メンズ")
 
+    # 同じ企業内で重複したカテゴリ名は作成できないこと
     def test_create_duplicate_name(self):
         url = reverse("category-list")
         data = {
@@ -97,6 +128,7 @@ class CategoryViewTests(APITestCase):
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # 存在しない企業IDでは作成できないこと
     def test_create_invalid_company(self):
         url = reverse("category-list")
         data = {
@@ -108,6 +140,7 @@ class CategoryViewTests(APITestCase):
 
     # --- update (PUT) ---
 
+    # カテゴリを全フィールド更新できること
     def test_update(self):
         url = reverse("category-detail", args=[self.category_tops.id])
         data = {
@@ -121,6 +154,7 @@ class CategoryViewTests(APITestCase):
 
     # --- partial_update (PATCH) ---
 
+    # カテゴリを部分更新できること
     def test_partial_update(self):
         url = reverse("category-detail", args=[self.category_tops.id])
         data = {"name": "ボトムス"}
@@ -130,12 +164,14 @@ class CategoryViewTests(APITestCase):
 
     # --- destroy ---
 
+    # カテゴリを1件削除できること
     def test_destroy(self):
         url = reverse("category-detail", args=[self.category_tops.id])
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
 
+    # 存在しないIDで404が返ること
     def test_destroy_not_found(self):
         url = reverse("category-detail", args=[uuid.uuid4()])
         response = self.client.delete(url)
@@ -143,6 +179,7 @@ class CategoryViewTests(APITestCase):
 
     # --- bulk_destroy ---
 
+    # 複数のカテゴリをまとめて削除できること
     def test_bulk_destroy(self):
         url = reverse("category-bulk-destroy")
         data = {"ids": [self.category_ladies.id, self.category_tops.id]}
@@ -151,7 +188,7 @@ class CategoryViewTests(APITestCase):
         self.assertFalse(Category.objects.filter(pk=self.category_ladies.id).exists())
         self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
 
-    # 「存在するものだけ削除」という仕様を明示的に確認するテスト
+    # 存在しないIDが混じっていても、存在するものだけ削除されること
     def test_bulk_destroy_skips_nonexistent_ids(self):
         url = reverse("category-bulk-destroy")
         data = {"ids": [self.category_tops.id, uuid.uuid4()]}
