@@ -195,3 +195,45 @@ class CategoryViewTests(APITestCase):
         response = self.client.delete(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
+
+    # --- bulk_update ---
+
+    # 複数のカテゴリをまとめて更新できること
+    def test_bulk_update(self):
+        url = reverse("category-bulk-update")
+        data = [
+            {"id": self.category_ladies.id, "name": "メンズ"},
+            {"id": self.category_tops.id, "name": "ボトムス"},
+        ]
+        response = self.client.patch(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["updated"]), 2)
+        self.assertEqual(len(response.data["errors"]), 0)
+        self.assertTrue(Category.objects.filter(pk=self.category_ladies.id, name="メンズ").exists())
+        self.assertTrue(Category.objects.filter(pk=self.category_tops.id, name="ボトムス").exists())
+
+    # 存在しないIDはスキップして、存在するものだけ更新されること
+    def test_bulk_update_skips_nonexistent_ids(self):
+        url = reverse("category-bulk-update")
+        data = [
+            {"id": self.category_tops.id, "name": "ボトムス"},
+            {"id": uuid.uuid4(), "name": "存在しない"},
+        ]
+        response = self.client.patch(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["updated"]), 1)
+        self.assertTrue(Category.objects.filter(pk=self.category_tops.id, name="ボトムス").exists())
+
+    # バリデーションエラーのものはerrorsに含まれ、有効なものは更新されること
+    def test_bulk_update_returns_errors_for_invalid_records(self):
+        url = reverse("category-bulk-update")
+        data = [
+            {"id": self.category_ladies.id, "name": "ボトムス"},
+            {"id": self.category_tops.id, "name": "ファッション"},  # 企業A内で既存
+        ]
+        response = self.client.patch(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["updated"]), 1)
+        self.assertEqual(len(response.data["errors"]), 1)
+        self.assertEqual(response.data["errors"][0]["id"], str(self.category_tops.id))
+        self.assertTrue(Category.objects.filter(pk=self.category_ladies.id, name="ボトムス").exists())

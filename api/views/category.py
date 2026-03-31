@@ -34,3 +34,25 @@ class CategoryViewSet(viewsets.ModelViewSet):
         # 存在するものだけ削除
         Category.objects.filter(pk__in=ids).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["patch"], url_path="bulk-update")
+    def bulk_update(self, request):
+        updated = []
+        errors = []
+
+        for item in request.data:
+            item_id = item.get("id")
+            try:
+                instance = Category.objects.get(pk=item_id)
+            except Category.DoesNotExist:
+                # 存在しないIDはスキップ
+                continue
+
+            serializer = self.get_serializer(instance, data=item, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                updated.append(serializer.data)
+            else:
+                errors.append({"id": item_id, "errors": serializer.errors})
+
+        return Response({"updated": updated, "errors": errors}, status=status.HTTP_200_OK)
