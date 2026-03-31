@@ -8,8 +8,8 @@ class CategorySerializer(serializers.ModelSerializer):
     company = serializers.PrimaryKeyRelatedField(queryset=Company.objects.all())
     parent_category = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(),
-        allow_null=True,
-        required=False,
+        allow_null=True, # NULL を受け入れる（ルートカテゴリは親なし）
+        required=False, # リクエストボディに含まれなくてもエラーにしない
     )
 
     class Meta:
@@ -22,6 +22,8 @@ class CategorySerializer(serializers.ModelSerializer):
         name = attrs.get("name", getattr(self.instance, "name", None))
 
         qs = Category.objects.filter(company=company, name=name)
+
+        # 更新時に「自分自身と同じ name」は重複扱いにしないため
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
 
