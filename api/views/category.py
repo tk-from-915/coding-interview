@@ -1,4 +1,6 @@
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from api.models.category import Category
 from api.serializers.category import CategorySerializer
@@ -25,3 +27,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(parent_category__name=parent_category_name)
 
         return queryset
+
+    @action(detail=False, methods=["delete"], url_path="bulk-delete")
+    def bulk_destroy(self, request):
+        ids = request.data.get("ids", [])
+        # 存在するものだけ削除
+        Category.objects.filter(pk__in=ids).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

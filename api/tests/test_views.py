@@ -140,3 +140,21 @@ class CategoryViewTests(APITestCase):
         url = reverse("category-detail", args=[uuid.uuid4()])
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    # --- bulk_destroy ---
+
+    def test_bulk_destroy(self):
+        url = reverse("category-bulk-destroy")
+        data = {"ids": [self.category_ladies.id, self.category_tops.id]}
+        response = self.client.delete(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Category.objects.filter(pk=self.category_ladies.id).exists())
+        self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
+
+    # 「存在するものだけ削除」という仕様を明示的に確認するテスト
+    def test_bulk_destroy_skips_nonexistent_ids(self):
+        url = reverse("category-bulk-destroy")
+        data = {"ids": [self.category_tops.id, uuid.uuid4()]}
+        response = self.client.delete(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Category.objects.filter(pk=self.category_tops.id).exists())
