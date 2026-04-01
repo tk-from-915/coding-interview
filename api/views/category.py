@@ -1,5 +1,6 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from api.models.category import Category
@@ -25,6 +26,24 @@ class CategoryViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(name=name)
         if parent_category_name:
             queryset = queryset.filter(parent_category__name=parent_category_name)
+
+        offset_param = self.request.query_params.get("offset")
+        limit_param = self.request.query_params.get("limit")
+
+        # limit・offset が指定された場合、空文字とNoneを区別しintに変換できなければ400を返す。
+        try:
+            offset = int(offset_param) if offset_param is not None else 0
+            limit = int(limit_param) if limit_param is not None else None
+        except ValueError:
+            raise ValidationError("limitとoffsetは数値で入力してください")
+
+        if offset < 0 or (limit is not None and limit <= 0):
+            raise ValidationError("limitとoffsetは数値で入力してください")
+
+        if limit is not None:
+            queryset = queryset[offset:offset + limit]
+        else:
+            queryset = queryset[offset:]
 
         return queryset
 

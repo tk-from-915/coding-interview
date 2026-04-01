@@ -103,6 +103,72 @@ class CategoryViewTests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "トップス")
 
+    # --- list pagination ---
+
+    # limit と offset 両方指定で件数が絞られること
+    def test_list_with_limit_and_offset(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"limit": 2, "offset": 1})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    # limit のみ指定で先頭から指定件数返ること
+    def test_list_with_limit_only(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"limit": 2})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    # offset のみ指定で指定件数スキップして全件返ること
+    def test_list_with_offset_only(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"offset": 2})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    # offset がレコード件数を超えている場合は0件返ること
+    def test_list_with_offset_exceeding_total(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"offset": 100})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+    # limit に文字列を指定した場合は400が返ること
+    def test_list_with_invalid_limit_string(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"limit": "abc"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # offset に文字列を指定した場合は400が返ること
+    def test_list_with_invalid_offset_string(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"offset": "abc"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # limit に空文字を指定した場合は400が返ること
+    def test_list_with_empty_limit(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"limit": ""})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # offset に空文字を指定した場合は400が返ること
+    def test_list_with_empty_offset(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"offset": ""})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # limit に0以下を指定した場合は400が返ること
+    def test_list_with_zero_limit(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"limit": 0})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # offset に負の数を指定した場合は400が返ること
+    def test_list_with_negative_offset(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"offset": -1})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     # --- create ---
 
     # カテゴリを1件作成できること
