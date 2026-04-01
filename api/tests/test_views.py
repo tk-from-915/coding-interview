@@ -33,6 +33,20 @@ class CategoryViewTests(APITestCase):
             name="食品",
             parent_category=None,
         )
+    # --- retrieve ---
+
+    # カテゴリIDで1件取得できること
+    def test_retrieve(self):
+        url = reverse("category-detail", args=[self.category_fashion.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["name"], "ファッション")
+
+    # 存在しないIDで404が返ること
+    def test_retrieve_not_found(self):
+        url = reverse("category-detail", args=[uuid.uuid4()])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # --- list ---
 
@@ -54,6 +68,14 @@ class CategoryViewTests(APITestCase):
     def test_list_filter_by_name(self):
         url = reverse("category-list")
         response = self.client.get(url, {"name": "トップス"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "トップス")
+
+        # 親カテゴリ名で絞り込めること
+    def test_list_filter_by_parent_category_name(self):
+        url = reverse("category-list")
+        response = self.client.get(url, {"parent_category_name": "レディース"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "トップス")
@@ -80,29 +102,6 @@ class CategoryViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "トップス")
-
-    # 親カテゴリ名で絞り込めること
-    def test_list_filter_by_parent_category_name(self):
-        url = reverse("category-list")
-        response = self.client.get(url, {"parent_category_name": "レディース"})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["name"], "トップス")
-
-    # --- retrieve ---
-
-    # カテゴリIDで1件取得できること
-    def test_retrieve(self):
-        url = reverse("category-detail", args=[self.category_fashion.id])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["name"], "ファッション")
-
-    # 存在しないIDで404が返ること
-    def test_retrieve_not_found(self):
-        url = reverse("category-detail", args=[uuid.uuid4()])
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     # --- create ---
 
